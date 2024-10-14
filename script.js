@@ -6,95 +6,99 @@ const overlayOptions = document.getElementById('overlay-options');
 const downloadBtn = document.getElementById('download-btn');
 const uploadLabel = document.getElementById('upload-label');
 const backgroundUpload = document.getElementById('background-upload');
+const overlayFolderPath = 'overlays/';
+
+const overlayContainer = document.getElementById('overlay-container');
+const moveHandle = document.getElementById('move-handle');
+const resizeHandle = document.getElementById('resize-handle');
+const rotateHandle = document.getElementById('rotate-handle');
+const overlayImagesContainer = document.getElementById('overlay-images-container');
 
 const ctx = canvas.getContext('2d');
 let backgroundImage = null;
+let currentRotation = 0;
+
+// Function to load overlay images
+function loadOverlayImages() {
+    const overlayImages = ['overlay1.png', 'overlay2.png'];  // Update with your actual filenames
+
+    overlayImages.forEach((filename) => {
+        const img = new Image();
+        img.src = overlayFolderPath + filename;
+        img.alt = 'Overlay ' + filename;
+        img.setAttribute('data-src', overlayFolderPath + filename);
+        img.width = 100;
+        img.style.cursor = 'pointer';
+        img.style.margin = '0 10px';
+
+        img.addEventListener('click', function() {
+            overlayImage.src = this.getAttribute('data-src');
+            overlayImage.style.display = 'block';
+            overlayImage.style.top = '0px';
+            overlayImage.style.left = '0px';
+            overlayImage.style.width = '100px';
+            overlayImage.style.height = 'auto';
+        });
+
+        img.onerror = function() {
+            console.error('Error loading image:', filename);
+            return;
+        };
+
+        overlayImagesContainer.appendChild(img);
+    });
+}
+
+// Call the function to load images
+loadOverlayImages();
 
 // Ensure canvas dimensions match the container
-console.log("Canvas container width:", canvasContainer.clientWidth, "Canvas container height:", canvasContainer.clientHeight);
 canvas.width = canvasContainer.clientWidth;
 canvas.height = canvasContainer.clientHeight;
-console.log("Canvas width set to:", canvas.width, "Canvas height set to:", canvas.height);
 
 // Handle drag and drop for background image
 canvasContainer.addEventListener('dragover', function(e) {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
-    console.log("Drag over detected");
 });
 
 canvasContainer.addEventListener('drop', function(e) {
     e.preventDefault();
-    console.log("Drop event detected");
     handleBackgroundImage(e.dataTransfer.files[0]);
 });
 
 // Handle click to upload background image
 backgroundUpload.addEventListener('change', function(e) {
-    console.log("Upload input change detected");
     handleBackgroundImage(e.target.files[0]);
 });
 
 function handleBackgroundImage(file) {
-    if (file) {
-        console.log("File selected:", file.name, "Type:", file.type);
-    } else {
-        console.log("No file selected");
-        return;
-    }
-
-    if (file.type.startsWith('image/')) {
+    if (file && file.type.startsWith('image/')) {
         const img = new Image();
         const reader = new FileReader();
         reader.onload = function(event) {
-            console.log("FileReader load event triggered");
             img.onload = function() {
-                console.log("Image loaded successfully");
-                // Clear canvas
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-                console.log("Canvas cleared");
 
-                // Draw the image centered and scaled to fit
                 const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
                 const x = (canvas.width - img.width * scale) / 2;
                 const y = (canvas.height - img.height * scale) / 2;
-                console.log("Image scale:", scale, "Position (x, y):", x, y);
-                
+
                 ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
                 backgroundImage = { img: img, x: x, y: y, width: img.width * scale, height: img.height * scale };
-                console.log("Image drawn to canvas");
-                
-                // Hide upload label
                 uploadLabel.style.display = 'none';
-                console.log("Upload label hidden");
-            };
-            img.onerror = function(e) {
-                console.error("Image load error", e);
-                alert("Error loading the image.");
             };
             img.src = event.target.result;
-            console.log("Image src set to:", event.target.result);
         };
-        reader.onerror = function(e) {
-            console.error("FileReader error", e);
-            alert("Error reading the file.");
-        };
-        console.log("Reading file as data URL");
         reader.readAsDataURL(file);
-    } else {
-        console.log("Invalid file type:", file.type);
-        alert("Please select a valid image file.");
     }
 }
 
 // Handle overlay image selection
 overlayOptions.addEventListener('click', function(e) {
     if (e.target.tagName === 'IMG') {
-        const src = e.target.getAttribute('data-src');
-        overlayImage.src = src;
+        overlayImage.src = e.target.getAttribute('data-src');
         overlayImage.style.display = 'block';
-        console.log("Overlay image selected:", src);
-        // Reset position and size
         overlayImage.style.top = '0px';
         overlayImage.style.left = '0px';
         overlayImage.style.width = '100px';
@@ -102,117 +106,151 @@ overlayOptions.addEventListener('click', function(e) {
     }
 });
 
-// Make overlay image draggable and resizable
+// Make overlay image draggable, resizable, and rotatable
 let isDragging = false;
 let isResizing = false;
+let isRotating = false;
 let startX, startY, startWidth, startHeight, startLeft, startTop;
+let startRotationAngle = 0;
+let centerX, centerY;
 
-overlayImage.addEventListener('mousedown', function(e) {
+function startDrag(e) {
     e.preventDefault();
-    startX = e.clientX;
-    startY = e.clientY;
-    startWidth = overlayImage.clientWidth;
-    startHeight = overlayImage.clientHeight;
-    startLeft = overlayImage.offsetLeft;
-    startTop = overlayImage.offsetTop;
-    console.log("Mouse down on overlay image", { startX, startY, startWidth, startHeight, startLeft, startTop });
 
-    // Determine if we're resizing or dragging
-    if (e.offsetX > overlayImage.clientWidth - 10 && e.offsetY > overlayImage.clientHeight - 10) {
-        isResizing = true;
-        console.log("Resizing overlay image");
-    } else {
+    const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+    const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+
+    startX = clientX;
+    startY = clientY;
+    startWidth = overlayContainer.clientWidth;
+    startHeight = overlayContainer.clientHeight;
+    startLeft = overlayContainer.offsetLeft;
+    startTop = overlayContainer.offsetTop;
+
+    // Calculate the center point of the overlay for rotation
+    const rect = overlayContainer.getBoundingClientRect();
+    centerX = rect.left + rect.width / 2;
+    centerY = rect.top + rect.height / 2;
+
+    if (e.target === moveHandle) {
         isDragging = true;
-        console.log("Dragging overlay image");
+    } else if (e.target === resizeHandle) {
+        isResizing = true;
+    } else if (e.target === rotateHandle) {
+        isRotating = true;
+        startRotationAngle = calculateAngle(clientX, clientY);
     }
-});
+}
 
-document.addEventListener('mousemove', function(e) {
+// Function to calculate the angle between the center of the image and the pointer position
+function calculateAngle(x, y) {
+    const deltaX = x - centerX;
+    const deltaY = y - centerY;
+    return Math.atan2(deltaY, deltaX) * (180 / Math.PI);  // Convert radians to degrees
+}
+
+function moveDrag(e) {
+    if (!isDragging && !isResizing && !isRotating) return;
+
+    const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+    const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+    const dx = clientX - startX;
+    const dy = clientY - startY;
+
     if (isDragging) {
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-        overlayImage.style.left = (startLeft + dx) + 'px';
-        overlayImage.style.top = (startTop + dy) + 'px';
-        console.log("Moving overlay image", { dx, dy });
+        overlayContainer.style.left = `${startLeft + dx}px`;
+        overlayContainer.style.top = `${startTop + dy}px`;
     } else if (isResizing) {
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-        const newWidth = startWidth + dx;
-        const newHeight = startHeight + dy;
-        overlayImage.style.width = newWidth + 'px';
-        overlayImage.style.height = newHeight + 'px';
-        console.log("Resizing overlay image", { newWidth, newHeight });
+        overlayContainer.style.width = `${startWidth + dx}px`;
+        overlayContainer.style.height = `${startHeight + dy}px`;
+        overlayImage.style.width = `${startWidth + dx}px`;
+        overlayImage.style.height = `${startHeight + dy}px`;
+    } else if (isRotating) {
+        const currentAngle = calculateAngle(clientX, clientY);
+        const angleDiff = currentAngle - startRotationAngle;
+        currentRotation += angleDiff;  // Adjust current rotation based on the change in angle
+        overlayContainer.style.transform = `rotate(${currentRotation}deg)`;
+        startRotationAngle = currentAngle;  // Update the starting angle for continuous rotation
     }
-});
+}
 
-document.addEventListener('mouseup', function() {
+function stopDrag() {
     isDragging = false;
     isResizing = false;
-    console.log("Mouse up, dragging and resizing stopped");
-});
+    isRotating = false;
+}
 
-// Change cursor style
-overlayImage.addEventListener('mousemove', function(e) {
-    if (e.offsetX > overlayImage.clientWidth - 10 && e.offsetY > overlayImage.clientHeight - 10) {
-        overlayImage.style.cursor = 'se-resize';
-    } else {
-        overlayImage.style.cursor = 'move';
-    }
-});
+// Attach events
+moveHandle.addEventListener('mousedown', startDrag);
+moveHandle.addEventListener('touchstart', startDrag);
 
-// Handle download
+resizeHandle.addEventListener('mousedown', startDrag);
+resizeHandle.addEventListener('touchstart', startDrag);
+
+rotateHandle.addEventListener('mousedown', startDrag);  // Rotate handle
+rotateHandle.addEventListener('touchstart', startDrag);
+
+document.addEventListener('mousemove', moveDrag);
+document.addEventListener('touchmove', moveDrag);
+
+document.addEventListener('mouseup', stopDrag);
+document.addEventListener('touchend', stopDrag);
+
+// Handle download or open in new tab
 downloadBtn.addEventListener('click', function() {
     if (!backgroundImage) {
-        console.log("No background image, can't download");
         alert("Please upload a background image first.");
         return;
     }
 
-    // Draw the background image and overlay image onto a new canvas
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = canvas.width;
     tempCanvas.height = canvas.height;
     const tempCtx = tempCanvas.getContext('2d');
 
-    console.log("Drawing background image to temporary canvas");
+    // Draw the background image onto the temp canvas
     tempCtx.drawImage(backgroundImage.img, backgroundImage.x, backgroundImage.y, backgroundImage.width, backgroundImage.height);
 
     // Draw the overlay image if it exists
     if (overlayImage.style.display !== 'none') {
         const img = new Image();
-        img.crossOrigin = 'anonymous';  // Enable cross-origin for the overlay image
+        img.crossOrigin = 'anonymous'; 
         img.src = overlayImage.src;
 
         img.onload = function() {
-            const rect = overlayImage.getBoundingClientRect();
+            const rect = overlayContainer.getBoundingClientRect();
             const containerRect = canvasContainer.getBoundingClientRect();
             const x = rect.left - containerRect.left;
             const y = rect.top - containerRect.top;
-            const width = overlayImage.clientWidth;
-            const height = overlayImage.clientHeight;
-            console.log("Drawing overlay image", { x, y, width, height });
+            const width = overlayContainer.clientWidth;
+            const height = overlayContainer.clientHeight;
 
-            // Ensure the overlay image is drawn at the correct position
             tempCtx.drawImage(img, 0, 0, img.width, img.height, x, y, width, height);
 
-            // Create a link to download the image
-            const link = document.createElement('a');
-            link.download = 'image.png';
-            link.href = tempCanvas.toDataURL('image/png');
-            link.click();
-            console.log("Image downloaded");
-        };
-
-        img.onerror = function(e) {
-            console.error("Overlay image load error", e);
-            alert("Error loading the overlay image.");
+            // Convert the canvas to a Blob and trigger download
+            tempCanvas.toBlob(function(blob) {
+                const newImgUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = newImgUrl;
+                link.download = 'edited_image.png'; // Set the download filename
+                document.body.appendChild(link); // Required for Firefox
+                link.click();
+                document.body.removeChild(link); // Clean up
+                URL.revokeObjectURL(newImgUrl); // Clean up
+            }, 'image/png');
         };
     } else {
-        // No overlay image, download background image only
-        const link = document.createElement('a');
-        link.download = 'image.png';
-        link.href = tempCanvas.toDataURL('image/png');
-        link.click();
-        console.log("Background image only downloaded");
+        // No overlay image, just download the background image
+        tempCanvas.toBlob(function(blob) {
+            const newImgUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = newImgUrl;
+            link.download = 'edited_image.png'; // Set the download filename
+            document.body.appendChild(link); // Required for Firefox
+            link.click();
+            document.body.removeChild(link); // Clean up
+            URL.revokeObjectURL(newImgUrl); // Clean up
+        }, 'image/png');
     }
 });

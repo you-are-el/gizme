@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Add viewport for mobile scaling -->
     <title>Simple Image Overlay Tool</title>
     <style>
         body {
@@ -16,26 +17,65 @@
         #canvas-container {
             position: relative;
             border: 2px dashed #ccc;
-            width: 600px;
-            height: 400px;
+            width: 90vw; /* Scale based on viewport width */
+            height: 60vh; /* Scale based on viewport height */
             margin-bottom: 20px;
             overflow: hidden;
         }
         #canvas {
-            /* Removed CSS width and height to prevent scaling issues */
+            width: 100%;
+            height: 100%;
             display: block;
         }
-        #overlay-image {
+        #overlay-container {
             position: absolute;
             top: 0;
             left: 0;
-            cursor: move;
-            display: none;
-            border: 1px solid #000;
-            box-sizing: border-box;
         }
+        #overlay-image {
+            display: block;
+        }
+        #move-handle {
+        position: absolute;
+        top: 20%;
+        left: 20%;
+        width: 60%;
+        height: 60%; /* Adjust size */
+        cursor: move;
+        z-index: 10;
+        }
+
+        #resize-handle {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 20%;
+            height: 20%;
+            cursor: se-resize;
+            background-image: url('icons/resize.svg');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            z-index: 10;
+        }
+
+        #rotate-handle {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 20%;
+            height: 20%;
+            cursor: grab;
+            background-image: url('icons/rotate.svg');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            z-index: 10;
+        }
+
         #controls {
             text-align: center;
+            width: 90%;
         }
         #download-btn {
             margin-top: 20px;
@@ -43,7 +83,7 @@
             font-size: 16px;
         }
         #overlay-options img {
-            width: 100px;
+            width: 15vw; /* Adjust size for mobile */
             cursor: pointer;
             margin: 0 10px;
             border: 2px solid transparent;
@@ -73,32 +113,46 @@
         #background-upload {
             display: none;
         }
+
+        /* Media query for larger screens */
+        @media (min-width: 600px) {
+            #canvas-container {
+                width: 600px;
+                height: 400px;
+            }
+            #overlay-options img {
+                width: 100px;
+            }
+        }
     </style>
 </head>
 <body>
-
-<h1>GIZ-ME</h1>
-
-<div id="canvas-container">
-    <canvas id="canvas" width="600" height="400"></canvas>
-    <img id="overlay-image" src="" alt="">
-    <input type="file" id="background-upload" accept="image/*">
-    <label for="background-upload" id="upload-label">Click or Drag &amp; Drop to Upload Background Image</label>
-</div>
-
-<div id="controls">
-    <div id="overlay-options">
-        <p>Select a your Gizmo:</p>
-        <img src="overlay1.png" alt="Overlay 1" data-src="overlay1.png">
-        <img src="overlay2.png" alt="Overlay 2" data-src="overlay2.png">
+    <h1>GIZ-ME</h1>
+    <div id="canvas-container">
+        <canvas id="canvas" width="600" height="400"></canvas>
+        <div id="overlay-container">
+            <img id="overlay-image" src="" alt="">
+            <div id="move-handle"></div>
+            <div id="resize-handle"></div>
+            <div id="rotate-handle"></div>
+        </div>
+        <input type="file" id="background-upload" accept="image/*">
+        <label for="background-upload" id="upload-label">Click or Drag &amp; Drop to Upload Background Image</label>
     </div>
-    <button id="download-btn">Download Image</button>
-    <p>Drag and drop your background image onto the canvas area above.</p>
-    <p>Move and resize the overlay image as desired.</p>
-    <p>Built in 5 minutes by <a href="https://x.com/you_are_el">you_are_el</a></p>
-</div>
 
-<script src="script.js"></script>
+    <div id="controls">
+        <div id="overlay-options">
+            <p>Select your Gizmo:</p>
+            <div id="overlay-images-container">
+                <!-- Overlays will be loaded here dynamically -->
+            </div>
+        </div>
+        <button id="download-btn">Download Image</button>
+        <p>Drag and drop or upload your background image onto the canvas area above.</p>
+        <p>Move, resize, and rotate the overlay image as desired.</p>
+        <p>Built by <a href="https://x.com/you_are_el">you_are_el</a></p>
+    </div>
 
+    <script src="script.js"></script>
 </body>
 </html>
