@@ -233,7 +233,7 @@ downloadBtn.addEventListener('click', function() {
                 const newImgUrl = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = newImgUrl;
-                link.download = 'edited_image.png'; // Set the download filename
+                link.download = 'my_gizmo.png'; // Set the download filename
                 document.body.appendChild(link); // Required for Firefox
                 link.click();
                 document.body.removeChild(link); // Clean up
@@ -246,7 +246,7 @@ downloadBtn.addEventListener('click', function() {
             const newImgUrl = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = newImgUrl;
-            link.download = 'edited_image.png'; // Set the download filename
+            link.download = 'my_gizmo.png'; // Set the download filename
             document.body.appendChild(link); // Required for Firefox
             link.click();
             document.body.removeChild(link); // Clean up
