@@ -1,4 +1,4 @@
-# Simple Image Overlay Tool
+# Me and my best friend Gizmo
 
 ## Overview
 
