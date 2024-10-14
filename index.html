@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Simple Image Overlay Tool</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        #canvas-container {
+            position: relative;
+            border: 2px dashed #ccc;
+            width: 600px;
+            height: 400px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        #canvas {
+            /* Removed CSS width and height to prevent scaling issues */
+            display: block;
+        }
+        #overlay-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: move;
+            display: none;
+            border: 1px solid #000;
+            box-sizing: border-box;
+        }
+        #controls {
+            text-align: center;
+        }
+        #download-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        #overlay-options img {
+            width: 100px;
+            cursor: pointer;
+            margin: 0 10px;
+            border: 2px solid transparent;
+        }
+        #overlay-options img:hover {
+            border-color: #000;
+        }
+        h1 {
+            margin-bottom: 20px;
+        }
+        p {
+            margin: 10px 0;
+        }
+        #upload-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 18px;
+            color: #666;
+            cursor: pointer;
+        }
+        #upload-label:hover {
+            color: #000;
+        }
+        #background-upload {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<h1>GIZ-ME</h1>
+
+<div id="canvas-container">
+    <canvas id="canvas" width="600" height="400"></canvas>
+    <img id="overlay-image" src="" alt="">
+    <input type="file" id="background-upload" accept="image/*">
+    <label for="background-upload" id="upload-label">Click or Drag &amp; Drop to Upload Background Image</label>
+</div>
+
+<div id="controls">
+    <div id="overlay-options">
+        <p>Select a your Gizmo:</p>
+        <img src="overlay1.png" alt="Overlay 1" data-src="overlay1.png">
+        <img src="overlay2.png" alt="Overlay 2" data-src="overlay2.png">
+    </div>
+    <button id="download-btn">Download Image</button>
+    <p>Drag and drop your background image onto the canvas area above.</p>
+    <p>Move and resize the overlay image as desired.</p>
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
