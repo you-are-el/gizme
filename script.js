@@ -9,14 +9,58 @@ const backgroundUpload = document.getElementById('background-upload');
 const overlayFolderPath = 'overlays/';
 
 const overlayContainer = document.getElementById('overlay-container');
-const moveHandle = document.getElementById('move-handle');
-const resizeHandle = document.getElementById('resize-handle');
-const rotateHandle = document.getElementById('rotate-handle');
 const overlayImagesContainer = document.getElementById('overlay-images-container');
 
 const ctx = canvas.getContext('2d');
 let backgroundImage = null;
-let currentRotation = 0;
+
+// Store overlay transformation data
+let overlayData = {
+    x: 0,
+    y: 0,
+    width: 100,
+    height: 100,
+    rotation: 0,
+};
+
+// Initialize Moveable but initially hide it
+const moveable = new Moveable(document.body, {
+    target: overlayContainer,
+    draggable: true,
+    resizable: true,
+    scalable: true,
+    rotatable: true,
+    pinchable: true,
+    keepRatio: true,
+    origin: true,
+    visible: false, // Initially invisible
+});
+
+// Hide Moveable initially
+moveable.target = null;
+moveable.visible = false;
+
+// Handle Moveable events
+moveable
+    .on('drag', ({ target, left, top }) => {
+        target.style.left = `${left}px`;
+        target.style.top = `${top}px`;
+        overlayData.x = left;
+        overlayData.y = top;
+    })
+    .on('resize', ({ target, width, height }) => {
+        target.style.width = `${width}px`;
+        target.style.height = `${height}px`;
+        overlayImage.style.width = `${width}px`;
+        overlayImage.style.height = `${height}px`;
+        overlayData.width = width;
+        overlayData.height = height;
+    })
+    .on('rotate', ({ target, beforeDelta }) => {
+        const rotate = overlayData.rotation + beforeDelta;
+        overlayData.rotation = rotate;
+        target.style.transform = `rotate(${rotate}deg)`;
+    });
 
 // Function to load overlay images
 function loadOverlayImages() {
@@ -38,6 +82,20 @@ function loadOverlayImages() {
             overlayImage.style.left = '0px';
             overlayImage.style.width = '100px';
             overlayImage.style.height = 'auto';
+
+            // Reset overlay data for the new image
+            overlayData = {
+                x: 0,
+                y: 0,
+                width: 100,
+                height: 100,
+                rotation: 0,
+            };
+
+            // Show Moveable only after an image is loaded
+            moveable.target = overlayContainer;
+            moveable.updateTarget();
+            moveable.visible = true;  // Make Moveable visible
         });
 
         img.onerror = function() {
@@ -78,124 +136,45 @@ function handleBackgroundImage(file) {
         const reader = new FileReader();
         reader.onload = function(event) {
             img.onload = function() {
+                // Max width for the canvas (90vw based on your CSS)
+                const maxCanvasWidth = canvasContainer.clientWidth;
+
+                // Calculate the image aspect ratio
+                const aspectRatio = img.width / img.height;
+
+                // Calculate the new canvas width and height based on the image aspect ratio
+                let newCanvasWidth = img.width;
+                let newCanvasHeight = img.height;
+
+                // If the image width exceeds the maximum canvas width, adjust the size proportionally
+                if (newCanvasWidth > maxCanvasWidth) {
+                    newCanvasWidth = maxCanvasWidth;
+                    newCanvasHeight = newCanvasWidth / aspectRatio;
+                }
+
+                // Update the canvas dimensions to match the adjusted image size
+                canvas.width = newCanvasWidth;
+                canvas.height = newCanvasHeight;
+
+                // Clear the canvas and draw the resized background image
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, newCanvasWidth, newCanvasHeight);
 
-                const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
-                const x = (canvas.width - img.width * scale) / 2;
-                const y = (canvas.height - img.height * scale) / 2;
+                // Store the background image details
+                backgroundImage = { img: img, x: 0, y: 0, width: newCanvasWidth, height: newCanvasHeight };
 
-                ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-                backgroundImage = { img: img, x: x, y: y, width: img.width * scale, height: img.height * scale };
+                // Hide the upload label after an image is successfully uploaded
                 uploadLabel.style.display = 'none';
+
+                // Adjust the canvas container size to match the new canvas dimensions
+                canvasContainer.style.width = `${newCanvasWidth}px`;
+                canvasContainer.style.height = `${newCanvasHeight}px`;
             };
             img.src = event.target.result;
         };
         reader.readAsDataURL(file);
     }
 }
-
-// Handle overlay image selection
-overlayOptions.addEventListener('click', function(e) {
-    if (e.target.tagName === 'IMG') {
-        overlayImage.src = e.target.getAttribute('data-src');
-        overlayImage.style.display = 'block';
-        overlayImage.style.top = '0px';
-        overlayImage.style.left = '0px';
-        overlayImage.style.width = '100px';
-        overlayImage.style.height = 'auto';
-    }
-});
-
-// Make overlay image draggable, resizable, and rotatable
-let isDragging = false;
-let isResizing = false;
-let isRotating = false;
-let startX, startY, startWidth, startHeight, startLeft, startTop;
-let startRotationAngle = 0;
-let centerX, centerY;
-
-function startDrag(e) {
-    e.preventDefault();
-
-    const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-    const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
-
-    startX = clientX;
-    startY = clientY;
-    startWidth = overlayContainer.clientWidth;
-    startHeight = overlayContainer.clientHeight;
-    startLeft = overlayContainer.offsetLeft;
-    startTop = overlayContainer.offsetTop;
-
-    // Calculate the center point of the overlay for rotation
-    const rect = overlayContainer.getBoundingClientRect();
-    centerX = rect.left + rect.width / 2;
-    centerY = rect.top + rect.height / 2;
-
-    if (e.target === moveHandle) {
-        isDragging = true;
-    } else if (e.target === resizeHandle) {
-        isResizing = true;
-    } else if (e.target === rotateHandle) {
-        isRotating = true;
-        startRotationAngle = calculateAngle(clientX, clientY);
-    }
-}
-
-// Function to calculate the angle between the center of the image and the pointer position
-function calculateAngle(x, y) {
-    const deltaX = x - centerX;
-    const deltaY = y - centerY;
-    return Math.atan2(deltaY, deltaX) * (180 / Math.PI);  // Convert radians to degrees
-}
-
-function moveDrag(e) {
-    if (!isDragging && !isResizing && !isRotating) return;
-
-    const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
-    const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
-
-    const dx = clientX - startX;
-    const dy = clientY - startY;
-
-    if (isDragging) {
-        overlayContainer.style.left = `${startLeft + dx}px`;
-        overlayContainer.style.top = `${startTop + dy}px`;
-    } else if (isResizing) {
-        overlayContainer.style.width = `${startWidth + dx}px`;
-        overlayContainer.style.height = `${startHeight + dy}px`;
-        overlayImage.style.width = `${startWidth + dx}px`;
-        overlayImage.style.height = `${startHeight + dy}px`;
-    } else if (isRotating) {
-        const currentAngle = calculateAngle(clientX, clientY);
-        const angleDiff = currentAngle - startRotationAngle;
-        currentRotation += angleDiff;  // Adjust current rotation based on the change in angle
-        overlayContainer.style.transform = `rotate(${currentRotation}deg)`;
-        startRotationAngle = currentAngle;  // Update the starting angle for continuous rotation
-    }
-}
-
-function stopDrag() {
-    isDragging = false;
-    isResizing = false;
-    isRotating = false;
-}
-
-// Attach events
-moveHandle.addEventListener('mousedown', startDrag);
-moveHandle.addEventListener('touchstart', startDrag);
-
-resizeHandle.addEventListener('mousedown', startDrag);
-resizeHandle.addEventListener('touchstart', startDrag);
-
-rotateHandle.addEventListener('mousedown', startDrag);  // Rotate handle
-rotateHandle.addEventListener('touchstart', startDrag);
-
-document.addEventListener('mousemove', moveDrag);
-document.addEventListener('touchmove', moveDrag);
-
-document.addEventListener('mouseup', stopDrag);
-document.addEventListener('touchend', stopDrag);
 
 // Handle download or open in new tab
 downloadBtn.addEventListener('click', function() {
@@ -204,40 +183,61 @@ downloadBtn.addEventListener('click', function() {
         return;
     }
 
+    // Create a temporary canvas to render the full-resolution image
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
+    tempCanvas.width = backgroundImage.img.width;  // Original width
+    tempCanvas.height = backgroundImage.img.height;  // Original height
     const tempCtx = tempCanvas.getContext('2d');
 
-    // Draw the background image onto the temp canvas
-    tempCtx.drawImage(backgroundImage.img, backgroundImage.x, backgroundImage.y, backgroundImage.width, backgroundImage.height);
+    // Draw the original-size background image onto the temp canvas
+    tempCtx.drawImage(backgroundImage.img, 0, 0, backgroundImage.img.width, backgroundImage.img.height);
 
-    // Draw the overlay image if it exists
+    // Draw the overlay image at the correct position and size relative to the original image
     if (overlayImage.style.display !== 'none') {
         const img = new Image();
         img.crossOrigin = 'anonymous'; 
         img.src = overlayImage.src;
 
         img.onload = function() {
-            const rect = overlayContainer.getBoundingClientRect();
             const containerRect = canvasContainer.getBoundingClientRect();
-            const x = rect.left - containerRect.left;
-            const y = rect.top - containerRect.top;
-            const width = overlayContainer.clientWidth;
-            const height = overlayContainer.clientHeight;
+            const overlayRect = overlayContainer.getBoundingClientRect();
 
-            tempCtx.drawImage(img, 0, 0, img.width, img.height, x, y, width, height);
+            // Calculate the scale factor between the displayed canvas and the original image
+            const scaleX = backgroundImage.img.width / containerRect.width;
+            const scaleY = backgroundImage.img.height / containerRect.height;
 
-            // Convert the canvas to a Blob and trigger download
+            // Calculate the actual position and size for the overlay, relative to the original image size
+            const x = (overlayRect.left - containerRect.left) * scaleX;
+            const y = (overlayRect.top - containerRect.top) * scaleY;
+            const width = overlayRect.width * scaleX;
+            const height = overlayRect.height * scaleY;
+
+            // Save the current canvas state
+            tempCtx.save();
+
+            // Translate to the center of the overlay image, rotate, then translate back
+            const centerX = x + width / 2;
+            const centerY = y + height / 2;
+            tempCtx.translate(centerX, centerY);
+            tempCtx.rotate((overlayData.rotation * Math.PI) / 180); // Convert degrees to radians
+            tempCtx.translate(-centerX, -centerY);
+
+            // Draw the overlay image after rotation
+            tempCtx.drawImage(img, x, y, width, height);
+
+            // Restore the canvas state
+            tempCtx.restore();
+
+            // Convert the temp canvas to a Blob and trigger download
             tempCanvas.toBlob(function(blob) {
                 const newImgUrl = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = newImgUrl;
-                link.download = 'my_gizmo.png'; // Set the download filename
-                document.body.appendChild(link); // Required for Firefox
+                link.download = 'my_gizmo_high_res.png';  // Set the download filename
+                document.body.appendChild(link);  // Required for Firefox
                 link.click();
-                document.body.removeChild(link); // Clean up
-                URL.revokeObjectURL(newImgUrl); // Clean up
+                document.body.removeChild(link);  // Clean up
+                URL.revokeObjectURL(newImgUrl);  // Clean up
             }, 'image/png');
         };
     } else {
@@ -246,11 +246,57 @@ downloadBtn.addEventListener('click', function() {
             const newImgUrl = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = newImgUrl;
-            link.download = 'my_gizmo.png'; // Set the download filename
-            document.body.appendChild(link); // Required for Firefox
+            link.download = 'my_gizmo_high_res.png';  // Set the download filename
+            document.body.appendChild(link);  // Required for Firefox
             link.click();
-            document.body.removeChild(link); // Clean up
-            URL.revokeObjectURL(newImgUrl); // Clean up
+            document.body.removeChild(link);  // Clean up
+            URL.revokeObjectURL(newImgUrl);  // Clean up
         }, 'image/png');
     }
 });
+
+
+document.addEventListener("DOMContentLoaded", function() {
+    // Automatically focus on the cheat code input field when the page loads
+    const cheatCodeInput = document.getElementById("cheat-code-input");
+    cheatCodeInput.focus();
+
+    // Function to handle the cheat code detection
+    cheatCodeInput.addEventListener("keypress", function(event) {
+        // Check if Enter key is pressed
+        if (event.key === "Enter") {
+            // If the entered value is "quantum", switch the overlay
+            if (cheatCodeInput.value.toLowerCase() === "quantum") {
+                // Find the second overlay (overlay2.png) and replace it with lil_el.png
+                const overlayImages = document.querySelectorAll('#overlay-images-container img');
+                if (overlayImages.length > 1) {
+                    const overlay2 = overlayImages[1];  // Assuming the second overlay is at index 1
+                    overlay2.src = 'overlays/lil_el.png';  // Replace overlay2 with lil_el.png
+                    overlay2.setAttribute('data-src', 'overlays/lil_el.png'); // Update the data-src as well
+                }
+                cheatCodeInput.value = '';  // Clear the input field
+            }
+        }
+    });
+
+    // Function to handle clicks on overlay images
+    const overlayImagesContainer = document.getElementById('overlay-images-container');
+    overlayImagesContainer.addEventListener('click', function(event) {
+        const clickedImage = event.target;
+
+        // Ensure only images are clicked
+        if (clickedImage.tagName.toLowerCase() === 'img') {
+            const overlayImage = document.getElementById('overlay-image');
+            const overlaySrc = clickedImage.getAttribute('data-src');
+
+            // Load the clicked overlay image into the canvas overlay
+            overlayImage.src = overlaySrc;
+            overlayImage.style.display = 'block';
+            overlayImage.style.top = '0px';
+            overlayImage.style.left = '0px';
+            overlayImage.style.width = '100px';
+            overlayImage.style.height = 'auto';
+        }
+    });
+});
+
