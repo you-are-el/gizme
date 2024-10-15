@@ -176,8 +176,7 @@ function handleBackgroundImage(file) {
     }
 }
 
-// Handle download or open in new tab
-downloadBtn.addEventListener('click', function() {
+downloadBtn.addEventListener('click', function () {
     if (!backgroundImage) {
         alert("Please upload a background image first.");
         return;
@@ -192,48 +191,54 @@ downloadBtn.addEventListener('click', function() {
     // Draw the original-size background image onto the temp canvas
     tempCtx.drawImage(backgroundImage.img, 0, 0, backgroundImage.img.width, backgroundImage.img.height);
 
+    console.log("Original background image size:", backgroundImage.img.width, backgroundImage.img.height);
+
     // Draw the overlay image at the correct position and size relative to the original image
     if (overlayImage.style.display !== 'none') {
         const img = new Image();
-        img.crossOrigin = 'anonymous'; 
+        img.crossOrigin = 'anonymous';
         img.src = overlayImage.src;
 
-        img.onload = function() {
-            const containerRect = canvasContainer.getBoundingClientRect();
-            const overlayRect = overlayContainer.getBoundingClientRect();
-
+        img.onload = function () {
             // Calculate the scale factor between the displayed canvas and the original image
-            const scaleX = backgroundImage.img.width / containerRect.width;
-            const scaleY = backgroundImage.img.height / containerRect.height;
+            const scaleX = backgroundImage.img.width / canvas.width;
+            const scaleY = backgroundImage.img.height / canvas.height;
 
             // Calculate the actual position and size for the overlay, relative to the original image size
-            const x = (overlayRect.left - containerRect.left) * scaleX;
-            const y = (overlayRect.top - containerRect.top) * scaleY;
-            const width = overlayRect.width * scaleX;
-            const height = overlayRect.height * scaleY;
+            const x = overlayData.x * scaleX;
+            const y = overlayData.y * scaleY;
+            const width = overlayData.width * scaleX;
+            const height = overlayData.height * scaleY;
+
+            console.log("Overlay position and size (scaled):", x, y, width, height);
+            console.log("Overlay rotation:", overlayData.rotation);
+
+            // Convert rotation to radians
+            const radianAngle = (overlayData.rotation * Math.PI) / 180;
 
             // Save the current canvas state
             tempCtx.save();
 
-            // Translate to the center of the overlay image, rotate, then translate back
+            // Translate to the center of the overlay image for rotation
             const centerX = x + width / 2;
             const centerY = y + height / 2;
-            tempCtx.translate(centerX, centerY);
-            tempCtx.rotate((overlayData.rotation * Math.PI) / 180); // Convert degrees to radians
-            tempCtx.translate(-centerX, -centerY);
 
-            // Draw the overlay image after rotation
-            tempCtx.drawImage(img, x, y, width, height);
+            // Apply translation and rotation
+            tempCtx.translate(centerX, centerY);
+            tempCtx.rotate(radianAngle);
+
+            // Draw the overlay image within the rotated bounding box
+            tempCtx.drawImage(img, -width / 2, -height / 2, width, height);
 
             // Restore the canvas state
             tempCtx.restore();
 
             // Convert the temp canvas to a Blob and trigger download
-            tempCanvas.toBlob(function(blob) {
+            tempCanvas.toBlob(function (blob) {
                 const newImgUrl = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = newImgUrl;
-                link.download = 'my_gizmo_high_res.png';  // Set the download filename
+                link.download = 'my_gizmo.png';  // Set the download filename
                 document.body.appendChild(link);  // Required for Firefox
                 link.click();
                 document.body.removeChild(link);  // Clean up
@@ -242,11 +247,11 @@ downloadBtn.addEventListener('click', function() {
         };
     } else {
         // No overlay image, just download the background image
-        tempCanvas.toBlob(function(blob) {
+        tempCanvas.toBlob(function (blob) {
             const newImgUrl = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = newImgUrl;
-            link.download = 'my_gizmo_high_res.png';  // Set the download filename
+            link.download = 'my_gizmo.png';  // Set the download filename
             document.body.appendChild(link);  // Required for Firefox
             link.click();
             document.body.removeChild(link);  // Clean up
@@ -254,6 +259,7 @@ downloadBtn.addEventListener('click', function() {
         }, 'image/png');
     }
 });
+
 
 
 document.addEventListener("DOMContentLoaded", function() {
